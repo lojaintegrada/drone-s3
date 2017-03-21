@@ -97,8 +97,6 @@ func (p *Plugin) Exec() error {
 	//Allowing to use the instance role or provide a key and secret
 	if p.Key != "" && p.Secret != "" {
 		conf.Credentials = credentials.NewStaticCredentials(p.Key, p.Secret, "")
-	} else if p.YamlVerified != true {
-		return errors.New("Security issue: When using instance role you must have the yaml verified")
 	}
 	client := s3.New(session.New(), conf)
 
