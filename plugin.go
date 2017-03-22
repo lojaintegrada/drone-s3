@@ -6,12 +6,15 @@ import (
 	"path/filepath"
 	"strings"
 
+	"archive/zip"
+	"bytes"
 	log "github.com/Sirupsen/logrus"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/mattn/go-zglob"
+	"io/ioutil"
 )
 
 // Plugin defines the S3 plugin parameters.
@@ -76,6 +79,9 @@ type Plugin struct {
 	PathStyle bool
 	// Dry run without uploading/
 	DryRun bool
+
+	ShouldZip bool
+	ZipName   string
 }
 
 // Exec runs the plugin
@@ -114,6 +120,13 @@ func (p *Plugin) Exec() error {
 		return err
 	}
 
+	if p.ShouldZip {
+		return p.sendZipped(client, matches)
+	}
+	return p.send(client, matches)
+}
+
+func (p *Plugin) send(client *s3.S3, matches []string) error {
 	for _, match := range matches {
 
 		stat, err := os.Stat(match)
@@ -157,7 +170,6 @@ func (p *Plugin) Exec() error {
 			}).Error("Problem opening file")
 			return err
 		}
-		defer f.Close()
 
 		putObjectInput := &s3.PutObjectInput{
 			Body:        f,
@@ -185,6 +197,82 @@ func (p *Plugin) Exec() error {
 		}
 		f.Close()
 	}
+
+	return nil
+}
+
+func (p *Plugin) sendZipped(client *s3.S3, matches []string) error {
+	buf := new(bytes.Buffer)
+	zw := zip.NewWriter(buf)
+	for _, match := range matches {
+		stat, err := os.Stat(match)
+		if err != nil {
+			continue // should never happen
+		}
+
+		// skip directories
+		if stat.IsDir() {
+			continue
+		}
+
+		f, err := os.Open(match)
+		if err != nil {
+			log.WithFields(log.Fields{
+				"error": err,
+				"file":  match,
+			}).Error("Problem opening file")
+			return err
+		}
+
+		fbytes, err := ioutil.ReadAll(f)
+		if err != nil {
+			return err
+		}
+		f.Close()
+
+		fw, err := zw.Create(match)
+		if err != nil {
+			return err
+		}
+
+		if _, err := fw.Write(fbytes); err != nil {
+			return err
+		}
+	}
+	zw.Close()
+
+	// when executing a dry-run we exit because we don't actually want to
+	// upload the file to S3.
+	if p.DryRun {
+		return nil
+	}
+
+	zipFile, err := ioutil.TempFile("", p.ZipName)
+	if err != nil {
+		return err
+	}
+
+	zipFile.Write(buf.Bytes())
+	zipFile.Seek(0, 0)
+
+	contentType := "application/octet-stream"
+	putObjectInput := &s3.PutObjectInput{
+		Body:        zipFile,
+		Bucket:      &(p.Bucket),
+		Key:         &p.ZipName,
+		ACL:         &(p.Access),
+		ContentType: &contentType,
+	}
+
+	if p.Encryption != "" {
+		putObjectInput.ServerSideEncryption = &(p.Encryption)
+	}
+
+	if _, err := client.PutObject(putObjectInput); err != nil {
+		return err
+	}
+
+	os.Remove(zipFile.Name())
 
 	return nil
 }

@@ -100,6 +100,16 @@ func main() {
 			Name:  "env-file",
 			Usage: "source env file",
 		},
+		cli.BoolFlag{
+			Name:   "should-zip",
+			Usage:  "should zip content before submission",
+			EnvVar: "PLUGIN_SHOULD_ZIP",
+		},
+		cli.StringFlag{
+			Name:   "zip-name",
+			Usage:  "the zip name",
+			EnvVar: "PLUGIN_ZIP_NAME",
+		},
 	}
 
 	if err := app.Run(os.Args); err != nil {
@@ -128,6 +138,8 @@ func run(c *cli.Context) error {
 		PathStyle:    c.Bool("path-style"),
 		DryRun:       c.Bool("dry-run"),
 		YamlVerified: c.BoolT("yaml-verified"),
+		ShouldZip:    c.Bool("should-zip"),
+		ZipName:      c.String("zip-name"),
 	}
 
 	return plugin.Exec()
