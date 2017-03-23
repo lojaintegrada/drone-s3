@@ -81,7 +81,6 @@ type Plugin struct {
 	DryRun bool
 
 	ShouldZip bool
-	ZipName   string
 }
 
 // Exec runs the plugin
@@ -247,7 +246,7 @@ func (p *Plugin) sendZipped(client *s3.S3, matches []string) error {
 		return nil
 	}
 
-	zipFile, err := ioutil.TempFile("", p.ZipName)
+	zipFile, err := ioutil.TempFile("", p.Target)
 	if err != nil {
 		return err
 	}
@@ -259,7 +258,7 @@ func (p *Plugin) sendZipped(client *s3.S3, matches []string) error {
 	putObjectInput := &s3.PutObjectInput{
 		Body:        zipFile,
 		Bucket:      &(p.Bucket),
-		Key:         &p.ZipName,
+		Key:         &p.Target,
 		ACL:         &(p.Access),
 		ContentType: &contentType,
 	}
