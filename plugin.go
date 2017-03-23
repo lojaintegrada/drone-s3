@@ -246,13 +246,15 @@ func (p *Plugin) sendZipped(client *s3.S3, matches []string) error {
 		return nil
 	}
 
-	zipFile, err := ioutil.TempFile("", p.Target)
-	if err != nil {
+	zipName := "tmp.zip"
+	if err := ioutil.WriteFile(zipName, buf.Bytes(), 0644); err != nil {
 		return err
 	}
 
-	zipFile.Write(buf.Bytes())
-	zipFile.Seek(0, 0)
+	zipFile, err := os.Open(zipName)
+	if err != nil {
+		return err
+	}
 
 	contentType := "application/octet-stream"
 	putObjectInput := &s3.PutObjectInput{
@@ -271,7 +273,7 @@ func (p *Plugin) sendZipped(client *s3.S3, matches []string) error {
 		return err
 	}
 
-	os.Remove(zipFile.Name())
+	os.Remove(zipName)
 
 	return nil
 }
