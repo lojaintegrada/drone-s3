@@ -8,16 +8,16 @@ import (
 
 	"archive/zip"
 	"bytes"
+	"crypto/rand"
+	"fmt"
 	log "github.com/Sirupsen/logrus"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/mattn/go-zglob"
-	"io/ioutil"
 	"io"
-	"crypto/rand"
-	"fmt"
+	"io/ioutil"
 )
 
 // Plugin defines the S3 plugin parameters.
@@ -83,7 +83,8 @@ type Plugin struct {
 	// Dry run without uploading/
 	DryRun bool
 
-	ShouldZip bool
+	ShouldZip    bool
+	VersionLabel string
 }
 
 // Exec runs the plugin
@@ -237,6 +238,10 @@ func (p *Plugin) sendZipped(client *s3.S3, matches []string) error {
 			return err
 		}
 
+		if strings.Contains(match, "Dockerrun.aws") {
+			fbytes = p.injectVersion(fbytes)
+		}
+
 		if _, err := fw.Write(fbytes); err != nil {
 			return err
 		}
@@ -279,6 +284,14 @@ func (p *Plugin) sendZipped(client *s3.S3, matches []string) error {
 	os.Remove(zipName)
 
 	return nil
+}
+
+func (p *Plugin) injectVersion(origDockerRunBytes []byte) []byte {
+	n := bytes.IndexByte(origDockerRunBytes, 0)
+	origDockerRunStr := string(origDockerRunBytes[:n])
+
+	newDockerRunStr := strings.Replace(origDockerRunStr, "<#version#>", p.VersionLabel, -1)
+	return []byte(newDockerRunStr)
 }
 
 // matches is a helper function that returns a list of all files matching the

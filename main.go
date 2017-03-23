@@ -105,6 +105,11 @@ func main() {
 			Usage:  "should zip content before submission",
 			EnvVar: "PLUGIN_SHOULD_ZIP",
 		},
+		cli.StringFlag{
+			Name:   "version-label",
+			Usage:  "a label in the format of semver",
+			EnvVar: "PLUGIN_VERSION_LABEL",
+		},
 	}
 
 	if err := app.Run(os.Args); err != nil {
@@ -134,6 +139,7 @@ func run(c *cli.Context) error {
 		DryRun:       c.Bool("dry-run"),
 		YamlVerified: c.BoolT("yaml-verified"),
 		ShouldZip:    c.Bool("should-zip"),
+		VersionLabel: c.String("version-label"),
 	}
 
 	return plugin.Exec()
