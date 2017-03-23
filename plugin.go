@@ -287,8 +287,7 @@ func (p *Plugin) sendZipped(client *s3.S3, matches []string) error {
 }
 
 func (p *Plugin) injectVersion(origDockerRunBytes []byte) []byte {
-	n := bytes.IndexByte(origDockerRunBytes, 0)
-	origDockerRunStr := string(origDockerRunBytes[:n])
+	origDockerRunStr := string(origDockerRunBytes[:])
 
 	newDockerRunStr := strings.Replace(origDockerRunStr, "<#version#>", p.VersionLabel, -1)
 	return []byte(newDockerRunStr)
