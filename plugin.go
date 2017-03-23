@@ -123,10 +123,20 @@ func (p *Plugin) Exec() error {
 		return err
 	}
 
+	var serr error
 	if p.ShouldZip {
-		return p.sendZipped(client, matches)
+		serr = p.sendZipped(client, matches)
+	} else {
+		serr = p.send(client, matches)
 	}
-	return p.send(client, matches)
+
+	if serr != nil {
+		return serr
+	}
+
+	log.Info("Upload succeeded")
+
+	return nil
 }
 
 func (p *Plugin) send(client *s3.S3, matches []string) error {
