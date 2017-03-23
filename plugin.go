@@ -15,6 +15,9 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/mattn/go-zglob"
 	"io/ioutil"
+	"io"
+	"crypto/rand"
+	"fmt"
 )
 
 // Plugin defines the S3 plugin parameters.
@@ -246,7 +249,7 @@ func (p *Plugin) sendZipped(client *s3.S3, matches []string) error {
 		return nil
 	}
 
-	zipName := "tmp.zip"
+	zipName := uuid() + ".zip"
 	if err := ioutil.WriteFile(zipName, buf.Bytes(), 0644); err != nil {
 		return err
 	}
@@ -324,4 +327,19 @@ func contentType(path string) string {
 		typ = "application/octet-stream"
 	}
 	return typ
+}
+
+func uuid() string {
+	id := make([]byte, 16)
+	n, err := io.ReadFull(rand.Reader, id)
+	if n != len(id) || err != nil {
+		return "default"
+	}
+
+	// variant bits; see section 4.1.1
+	id[8] = id[8]&^0xc0 | 0x80
+	// version 4 (pseudo-random); see section 4.1.3
+	id[6] = id[6]&^0xf0 | 0x40
+
+	return fmt.Sprintf("%x-%x-%x-%x-%x", id[0:4], id[4:6], id[6:8], id[8:10], id[10:])
 }
