@@ -115,7 +115,7 @@ func (p *Plugin) Exec() error {
 		"bucket":   p.Bucket,
 	}).Info("Attempting to upload")
 
-	matches, err := matches(p.Source, p.Exclude)
+	m, err := matches(p.Source, p.Exclude)
 	if err != nil {
 		log.WithFields(log.Fields{
 			"error": err,
@@ -123,11 +123,21 @@ func (p *Plugin) Exec() error {
 		return err
 	}
 
+	ebM, err := matches(".ebextensions/**/*", []string{})
+	if err != nil {
+		log.WithFields(log.Fields{
+			"error": err,
+		}).Error("Could not match files")
+		return err
+	}
+
+	m = append(m, ebM...)
+
 	var serr error
 	if p.ShouldZip {
-		serr = p.sendZipped(client, matches)
+		serr = p.sendZipped(client, m)
 	} else {
-		serr = p.send(client, matches)
+		serr = p.send(client, m)
 	}
 
 	if serr != nil {
@@ -328,7 +338,7 @@ func matches(include string, exclude []string) ([]string, error) {
 		}
 	}
 
-	var included []string
+	included := []string{}
 	for _, include := range matches {
 		_, ok := excludem[include]
 		if ok {
